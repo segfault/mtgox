@@ -231,16 +231,16 @@ module MtGox
     #     my_order = MtGox.orders.first
     #     MtGox.cancel my_order
     #     MtGox.cancel {'oid' => '1234567890', 'type' => 2}
-    def cancel(args)
+    def cancel(args, pair='BTCUSD')
       if args.is_a?(Hash)
         order = args.delete_if{|k, v| !['oid', 'type'].include?(k.to_s)}
-        parse_order_id(post('money/order/cancel', 2,  order)['data'])
+        parse_order_id(post("#{pair}/money/order/cancel", 2,  order)['data'])
       else
-        orders = post('money/order/cancel', 2, {})['orders']
+        orders = post("#{pair}/money/order/cancel", 2, {})['data']
         order = orders.find{|order| order['oid'] == args.to_s}
         if order
           order = order.delete_if{|k, v| !['oid', 'type'].include?(k.to_s)}
-          parse_order_id(post('money/order/cancel', order)['data'])
+          parse_order_id(post("#{pair}/money/order/cancel", order)['data'])
         else
           raise Faraday::Error::ResourceNotFound, {status: 404, headers: {}, body: 'Order not found.'}
         end
