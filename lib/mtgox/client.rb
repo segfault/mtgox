@@ -233,10 +233,10 @@ module MtGox
     #     MtGox.cancel {'oid' => '1234567890', 'type' => 2}
     def cancel(args, pair='BTCUSD')
       if args.is_a?(Hash)
-        order = args.delete_if{|k, v| !['oid', 'type'].include?(k.to_s)}
-        parse_order_id(post("#{pair}/money/order/cancel", 2,  order)['data'])
+        order = args.delete_if{|k, v| !['oid'].include?(k.to_s)}
+        parse_order_id(post("#{pair}/money/order/cancel", 2, order)['data'])
       else
-        parse_order_id(post("#{pair}/money/order/cancel", 2, { oid: args.to_s })['data'])
+        parse_order_id(post("#{pair}/money/order/cancel", 2, { 'oid' => args.to_s })['data'])
       end
     end
 
