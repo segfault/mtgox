@@ -236,14 +236,7 @@ module MtGox
         order = args.delete_if{|k, v| !['oid', 'type'].include?(k.to_s)}
         parse_order_id(post("#{pair}/money/order/cancel", 2,  order)['data'])
       else
-        orders = post("#{pair}/money/order/cancel", 2, {})['data']
-        order = orders.find{|order| order['oid'] == args.to_s}
-        if order
-          order = order.delete_if{|k, v| !['oid', 'type'].include?(k.to_s)}
-          parse_order_id(post("#{pair}/money/order/cancel", order)['data'])
-        else
-          raise Faraday::Error::ResourceNotFound, {status: 404, headers: {}, body: 'Order not found.'}
-        end
+        parse_order_id(post("#{pair}/money/order/cancel", 2, { oid: args.to_s })['data'])
       end
     end
 
