@@ -25,7 +25,7 @@ module MtGox
     # @example
     #   MtGox.address
     def address
-      post('/api/0/btcAddress.php')['addr']
+      post('btcAddress.php', 0)['addr']
     end
 
 
@@ -35,8 +35,8 @@ module MtGox
     # @return [MtGox::Ticker]
     # @example
     #   MtGox.ticker
-    def ticker
-      ticker = get('/api/0/data/ticker.php')['ticker']
+    def ticker(pair='BTCUSD')
+      ticker = get("#{pair}/money/ticker", 2)['data']
       Ticker.instance.buy    = ticker['buy'].to_f
       Ticker.instance.high   = ticker['high'].to_f
       Ticker.instance.price  = ticker['last'].to_f
@@ -44,6 +44,7 @@ module MtGox
       Ticker.instance.sell   = ticker['sell'].to_f
       Ticker.instance.volume = ticker['vol'].to_f
       Ticker.instance.vwap   = ticker['vwap'].to_f
+      Ticker.instance.time   = Time.at(ticker['now'].to_f/1e6)
       Ticker.instance
     end
 
@@ -53,8 +54,8 @@ module MtGox
     # @return [Hash] with keys :asks and :asks, which contain arrays as described in {MtGox::Client#asks} and {MtGox::Clients#bids}
     # @example
     #   MtGox.offers
-    def offers
-      offers = get('/api/0/data/getDepth.php')
+    def offers(pair='BTCUSD')
+      offers = get("#{pair}/money/depth", 2)
       asks = offers['asks'].sort_by do |ask|
         ask[0].to_f
       end.map! do |ask|
@@ -120,8 +121,8 @@ module MtGox
     # @return [Array<MtGox::Trade>] an array of trades, sorted in chronological order
     # @example
     #   MtGox.trades
-    def trades
-      get('/api/0/data/getTrades.php').sort_by{|trade| trade['date']}.map do |trade|
+    def trades(pair='BTCUSD')
+      get("#{pair}/money/trades", 2).sort_by{|trade| trade['date']}.map do |trade|
         Trade.new(trade)
       end
     end
@@ -133,7 +134,7 @@ module MtGox
     # @example
     #   MtGox.balance
     def balance
-      parse_balance(post('/api/1/generic/private/info', {})['return'])
+      parse_balance(post('money/info', 2, {})['data'])
     end
 
     # Fetch your open orders, both buys and sells, for network efficiency
@@ -143,7 +144,7 @@ module MtGox
     # @example
     #   MtGox.orders
     def orders
-      parse_orders(post('/api/1/generic/private/orders', {})['return'])
+      parse_orders(post('money/orders', 2, {})['data'])
     end
 
     # Fetch your open buys
@@ -202,8 +203,15 @@ module MtGox
     # @example
     #   # Sell one bitcoin for $123
     #   MtGox.addorder! :sell, 1.0, 123.0
-    def addorder!(type, amount, price)
-      post('/api/1/BTCUSD/private/order/add', {type: order_type(type), amount_int: intify(amount,:btc), price_int: intify(price, :usd)})['return']
+    def addorder!(type, amount, price, pair='BTCUSD')
+      post("#{pair}/money/order/add", 2, {type: order_type(type), amount_int: intify(amount,:btc), price_int: intify(price, :usd)})['data']
+    end
+
+    # Fetch order status information for an order
+    #
+    # @authenticated true
+    def order_status(type, order_id)
+      post("#{pair}/money/order/add", 2, {type: order_type(type), order: order_id})['data']
     end
 
     # Cancel an open order
@@ -226,13 +234,13 @@ module MtGox
     def cancel(args)
       if args.is_a?(Hash)
         order = args.delete_if{|k, v| !['oid', 'type'].include?(k.to_s)}
-        parse_orders(post('/api/0/cancelOrder.php', order)['orders'])
+        parse_order_id(post('money/order/cancel', 2,  order)['data'])
       else
-        orders = post('/api/0/getOrders.php', {})['orders']
+        orders = post('money/order/cancel', 2, {})['orders']
         order = orders.find{|order| order['oid'] == args.to_s}
         if order
           order = order.delete_if{|k, v| !['oid', 'type'].include?(k.to_s)}
-          parse_orders(post('/api/0/cancelOrder.php', order)['orders'])
+          parse_order_id(post('money/order/cancel', order)['data'])
         else
           raise Faraday::Error::ResourceNotFound, {status: 404, headers: {}, body: 'Order not found.'}
         end
@@ -259,6 +267,10 @@ module MtGox
       balances << Balance.new('BTC', balance['Wallets']['BTC']['Balance']['value'])
       balances << Balance.new('USD', balance['Wallets']['USD']['Balance']['value'])
       balances
+    end
+
+    def parse_order_id(oidresult)
+      oidresult["oid"]
     end
 
     def parse_orders(orders)
