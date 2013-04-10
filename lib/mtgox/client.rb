@@ -210,8 +210,8 @@ module MtGox
     # Fetch order status information for an order
     #
     # @authenticated true
-    def order_status(type, order_id)
-      post("#{pair}/money/order/add", 2, {type: order_type(type), order: order_id})['data']
+    def order_status(type, order_id, pair='BTCUSD')
+      post("#{pair}/money/order/result", 2, {type: order_type(type), order: order_id})['data']
     end
 
     # Cancel an open order
